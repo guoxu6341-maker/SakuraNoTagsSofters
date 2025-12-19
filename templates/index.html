@@ -3,27 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sakura TagSofter (本地私有化版)</title>
+    <title>Sakura No Tagsofter 喵</title>
     <style>
-        /* 保持原有的漂亮样式，此处省略重复CSS以节省篇幅，样式与上一版完全一致 */
-        :root { --bg-dark: #0b0c15; --glass-bg: rgba(20, 25, 40, 0.75); --glass-border: rgba(150, 200, 255, 0.15); --neon-blue: #64d2ff; --neon-pink: #ff64e3; --neon-purple: #9f86ff; --text-main: #ffffff; --text-sub: #a0a8c0; --sidebar-width: 220px; }
+        :root {
+            --bg-dark: #0b0c15;
+            --glass-bg: rgba(20, 25, 40, 0.75);
+            --glass-border: rgba(150, 200, 255, 0.15);
+            --neon-blue: #64d2ff;
+            --neon-pink: #ff64e3;
+            --neon-purple: #9f86ff;
+            --text-main: #ffffff;
+            --text-sub: #a0a8c0;
+            --sidebar-width: 220px;
+        }
+
         body { margin: 0; padding: 0; font-family: 'Segoe UI', 'Roboto', monospace; background-color: #000000; background-image: linear-gradient(to bottom, #0b0c15 0%, #000000 100%); color: var(--text-main); min-height: 100vh; overflow-y: hidden; }
         .bg-decoration { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; background: radial-gradient(circle at 50% 30%, rgba(26, 31, 53, 0.8) 0%, transparent 50%); }
+        .snow-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: -1; pointer-events: none; }
+        .snowflake { position: absolute; top: -10px; background: white; border-radius: 50%; opacity: 0.8; filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5)); }
+        @keyframes snowFall { 0% { transform: translateY(-10vh) translateX(0) rotate(0deg); } 100% { transform: translateY(110vh) translateX(20px) rotate(360deg); } }
+
         .navbar { display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 20px; background: rgba(11, 12, 21, 0.9); border-bottom: 1px solid var(--glass-border); backdrop-filter: blur(10px); position: fixed; top: 0; left: 0; width: 100%; z-index: 1000; box-sizing: border-box; }
-        .logo { font-size: 1.5rem; font-weight: 800; background: linear-gradient(90deg, #ffb6c1, #ff64e3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; }
+        .logo { font-size: 1.5rem; font-weight: 800; background: linear-gradient(90deg, #ffb6c1, #ff64e3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; text-shadow: 0 0 20px rgba(255, 100, 227, 0.3); }
         .nav-tabs { display: flex; gap: 10px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 8px; }
         .nav-item { padding: 8px 20px; cursor: pointer; border-radius: 6px; font-size: 0.9rem; font-weight: 600; color: var(--text-sub); transition: all 0.3s; }
         .nav-item:hover { color: white; background: rgba(255,255,255,0.1); }
         .nav-item.active { background: var(--neon-purple); color: black; box-shadow: 0 0 15px rgba(159, 134, 255, 0.4); }
+
         .main-container { margin-top: 60px; height: calc(100vh - 60px); position: relative; }
         .page-view { display: none; height: 100%; overflow-y: auto; padding: 20px; box-sizing: border-box; animation: fadeIn 0.3s ease; }
         .page-view.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 通用 */
         .glass-panel { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; backdrop-filter: blur(15px); }
         textarea { width: 100%; background: rgba(0,0,0,0.4); border: 1px solid #333; border-radius: 6px; padding: 15px; color: #dbeafe; font-family: monospace; resize: vertical; outline: none; box-sizing: border-box; min-height: 150px; }
         textarea:focus { border-color: var(--neon-pink); }
         .btn-frost { background: rgba(255, 100, 227, 0.1); border: 1px solid var(--neon-pink); color: var(--neon-pink); padding: 8px 25px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         .btn-frost:hover { background: var(--neon-pink); color: black; box-shadow: 0 0 15px var(--neon-pink); }
+
+        /* Sorter */
         .sorter-layout { max-width: 1300px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
         .checkbox-wrapper { display: flex; align-items: center; cursor: pointer; color: var(--text-sub); }
         .checkbox-wrapper input { margin-right: 5px; accent-color: var(--neon-pink); }
@@ -39,6 +58,8 @@
         .sorter-tag-card:hover .sorter-cn { color: #ff8a80; }
         .sorter-tag-card.excluded { background: rgba(255,255,255,0.05); border-color: transparent; opacity: 0.5; }
         .sorter-tag-card.excluded .sorter-en { text-decoration: line-through; color: #666; }
+
+        /* Browser */
         .browser-layout { display: flex; flex-direction: column; height: 100%; gap: 15px; max-width: 1600px; margin: 0 auto; }
         .builder-box { background: var(--glass-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
         #builderInput { height: 80px; min-height: 80px; font-size: 1rem; }
@@ -52,6 +73,7 @@
         .chip-cn { font-size: 0.75rem; color: #ff64e3; opacity: 0.9; margin-top: 2px; }
         .selected-tag-chip:hover .chip-cn { color: #ff8a80; }
         .empty-tip { color: #666; font-size: 0.9rem; padding: 5px; font-style: italic; }
+
         .dict-container { flex: 1; display: flex; flex-direction: column; background: var(--glass-bg); border-radius: 12px; border: 1px solid var(--glass-border); overflow: hidden; min-height: 0; }
         .search-container { padding: 10px 15px; background: rgba(0,0,0,0.4); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px; }
         #searchInput { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; color: white; font-size: 0.95rem; outline: none; }
@@ -60,12 +82,15 @@
         .search-btn:hover { filter: brightness(1.2); }
         .add-btn { background: rgba(105, 240, 174, 0.2); color: #69f0ae; border: 1px solid #69f0ae; padding: 0 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-left: 10px; }
         .add-btn:hover { background: #69f0ae; color: black; }
+
         .major-tabs-scroll { display: flex; gap: 5px; padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); overflow-x: auto; white-space: nowrap; background: rgba(0,0,0,0.3); flex-shrink: 0; align-items: center; }
         .major-tab { padding: 8px 16px; border-radius: 4px; cursor: pointer; color: var(--text-sub); font-weight: 600; font-size: 0.95rem; transition: 0.2s; border-bottom: 2px solid transparent; user-select: none; }
         .major-tab:hover { color: white; background: rgba(255,255,255,0.05); }
         .major-tab.active { color: var(--neon-blue); border-bottom-color: var(--neon-blue); background: rgba(100, 210, 255, 0.1); }
+        .major-tab.dragging { opacity: 0.5; border: 2px dashed var(--neon-pink); background: rgba(255,255,255,0.1); }
         .major-tab-add { padding: 8px 12px; border-radius: 4px; cursor: pointer; color: #69f0ae; font-weight: bold; border: 1px dashed #69f0ae; margin-left: 10px; transition: 0.2s; }
         .major-tab-add:hover { background: rgba(105, 240, 174, 0.2); color: white; }
+
         .dict-content { display: flex; flex: 1; overflow: hidden; }
         .minor-sidebar { width: var(--sidebar-width); background: rgba(0,0,0,0.2); border-right: 1px solid rgba(255,255,255,0.1); overflow-y: auto; padding: 10px 0; flex-shrink: 0; }
         .minor-item { padding: 10px 20px; cursor: pointer; font-size: 0.9rem; color: #ccc; border-left: 3px solid transparent; transition: 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; }
@@ -73,19 +98,17 @@
         .minor-item.active { border-left-color: var(--neon-pink); background: linear-gradient(90deg, rgba(255,100,227,0.1), transparent); color: var(--neon-pink); font-weight: bold; }
         .minor-item-add { padding: 10px 20px; cursor: pointer; font-size: 0.9rem; color: #69f0ae; border-left: 3px solid transparent; transition: 0.2s; font-weight: bold; display: flex; align-items: center; gap: 5px; }
         .minor-item-add:hover { background: rgba(105, 240, 174, 0.1); }
+
         .tags-grid-area { flex: 1; overflow-y: auto; padding: 20px; background: rgba(0,0,0,0.1); }
         .section-title { font-size: 1.1rem; color: var(--neon-pink); margin-bottom: 15px; font-weight: bold; border-bottom: 1px solid rgba(255,100,227,0.3); padding-bottom: 5px; }
         .tags-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding-bottom: 20px; }
+
         .dict-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: all 0.2s ease; position: relative; overflow: hidden; min-height: 50px; justify-content: center; }
         .dict-card:hover { border-color: var(--neon-blue); background: rgba(100, 210, 255, 0.15); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
         .dict-card:active { transform: scale(0.98); }
         .dict-en { font-size: 0.95rem; color: #fff; font-weight: 600; word-break: break-word; line-height: 1.2; }
         .dict-cn { font-size: 0.8rem; color: var(--neon-pink); margin-top: auto; opacity: 0.9; font-weight: normal; }
         .dict-cn.empty { opacity: 0.3; font-style: italic; font-size: 0.75rem; }
-        
-        /* 标记为用户自定义的卡片 */
-        .dict-card.user-custom { border: 1px dashed #ffd700; background: rgba(255, 215, 0, 0.05); }
-        .dict-card.user-custom .dict-cn { color: #ffd700; }
 
         /* 弹窗 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 2000; justify-content: center; align-items: center; animation: fadeIn 0.2s ease; }
@@ -124,9 +147,10 @@
 <body>
 
 <div class="bg-decoration"></div>
+<div class="snow-container" id="snowContainer"></div>
 
 <div class="navbar">
-    <div class="logo">SAKURA TAGS <span style="font-size:0.8rem; color:#aaa; font-weight:normal;">(个人私有数据版)</span></div>
+    <div class="logo">SAKURA TAGS</div>
     <div class="nav-tabs">
         <div class="nav-item active" onclick="switchPage('sorter')">智能整理 (Sorter)</div>
         <div class="nav-item" onclick="switchPage('browser')">标签字典 (Browser)</div>
@@ -223,7 +247,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeModal()">取消</button>
-            <button class="btn-save" onclick="saveTagDataLocal()">保存到本地 (Local)</button>
+            <button class="btn-save" onclick="saveTagData()">保存并生效</button>
         </div>
     </div>
 </div>
@@ -232,20 +256,8 @@
 <div id="contextMenu"></div>
 
 <script>
-    // === 本地存储核心逻辑 ===
-    const STORAGE_KEY_TAGS = 'my_custom_tags';
-    const STORAGE_KEY_DELETED = 'my_deleted_tags';
-
-    // 加载本地数据
-    function getLocalData() {
-        return {
-            added: JSON.parse(localStorage.getItem(STORAGE_KEY_TAGS) || '[]'),
-            deleted: JSON.parse(localStorage.getItem(STORAGE_KEY_DELETED) || '[]')
-        };
-    }
-
-    // 初始化
     window.addEventListener('load', () => {
+        createSnow();
         loadGlobalConfig();
         const input = document.getElementById('builderInput');
         input.addEventListener('input', syncTagsFromInput);
@@ -259,9 +271,23 @@
         });
     });
 
+    function createSnow() {
+        const container = document.getElementById('snowContainer');
+        for (let i = 0; i < 50; i++) {
+            const flake = document.createElement('div');
+            flake.classList.add('snowflake');
+            const size = Math.random() * 3 + 1 + 'px';
+            flake.style.width = size; flake.style.height = size;
+            flake.style.left = Math.random() * 100 + 'vw';
+            flake.style.opacity = Math.random() * 0.5 + 0.1;
+            flake.style.animation = `snowFall ${Math.random() * 10 + 10}s linear infinite`;
+            flake.style.animationDelay = '-' + Math.random() * 10 + 's';
+            container.appendChild(flake);
+        }
+    }
+
     let globalConfig = { mapping: [], order: [] }; 
-    let dictionaryStructure = {}; // 基础结构（来自服务器）
-    let fullDictionaryStructure = {}; // 混合结构（服务器+本地）
+    let dictionaryStructure = {}; 
     let translationCache = {}; 
     let currentMajor = null;
     let currentMinor = null;
@@ -286,7 +312,7 @@
         if (pageId === 'browser' && Object.keys(dictionaryStructure).length === 0) loadDictionaryStructure();
     }
 
-    // === Sorter 逻辑 (保持不变) ===
+    // === Sorter 逻辑 ===
     let lastSortedData = {}; 
     async function processTags() {
         const inputStr = document.getElementById('inputTags').value;
@@ -370,8 +396,7 @@
         document.getElementById('outputText').value = fullText;
     }
 
-    // === 字典与混合逻辑 ===
-
+    // === Dictionary 逻辑 ===
     async function loadDictionaryStructure() {
         const grid = document.getElementById('tagsGrid');
         grid.innerHTML = '<div style="color:#888; padding:20px; text-align:center;">正在读取目录结构...</div>';
@@ -379,41 +404,42 @@
             const res = await fetch('/api/get_dictionary_structure');
             const data = await res.json();
             if (data.status === 'success') {
-                dictionaryStructure = data.structure; // 服务器的原始结构
-                mergeLocalDataToStructure(); // 合并本地结构
+                dictionaryStructure = data.structure;
                 renderMajorTabs();
                 grid.innerHTML = '<div style="color:#666; padding:20px; text-align:center;">← 请选择左侧分类查看标签</div>';
             } else grid.innerHTML = '<div style="color:red; padding:20px; text-align:center;">数据为空</div>';
         } catch(e) { grid.innerHTML = '网络错误: ' + e; }
     }
 
-    // 将本地添加的分类合并到目录树中
-    function mergeLocalDataToStructure() {
-        // 深拷贝一份，以免污染原始数据
-        fullDictionaryStructure = JSON.parse(JSON.stringify(dictionaryStructure));
-        const local = getLocalData();
-        
-        local.added.forEach(item => {
-            if (!fullDictionaryStructure[item.c]) {
-                fullDictionaryStructure[item.c] = [];
-            }
-            if (!fullDictionaryStructure[item.c].includes(item.s)) {
-                fullDictionaryStructure[item.c].push(item.s);
-                // 重新排序子类
-                fullDictionaryStructure[item.c].sort();
-            }
-        });
-    }
-
     function renderMajorTabs() {
         const container = document.getElementById('majorTabsContainer');
         container.innerHTML = '';
-        const categories = Object.keys(fullDictionaryStructure).sort();
+        
+        let categories = Object.keys(dictionaryStructure);
+        if(globalConfig.order.length > 0) {
+            let ordered = [];
+            let others = [];
+            globalConfig.order.forEach(c => { if(categories.includes(c)) ordered.push(c); });
+            categories.forEach(c => { if(!globalConfig.order.includes(c)) others.push(c); });
+            categories = ordered.concat(others);
+        } else {
+            categories.sort();
+        }
+
+        if (categories.length === 0) return;
         
         categories.forEach((cat, index) => {
             const tab = document.createElement('div');
             tab.className = 'major-tab';
             tab.innerText = cat;
+            tab.draggable = true;
+            
+            tab.addEventListener('dragstart', handleDragStart);
+            tab.addEventListener('dragover', handleDragOver);
+            tab.addEventListener('drop', handleDrop);
+            tab.addEventListener('dragend', handleDragEnd);
+            tab.addEventListener('contextmenu', (e) => handleRightClick(e, 'major', cat));
+
             tab.onclick = () => selectMajor(cat, tab);
             container.appendChild(tab);
             if (index === 0 && !currentMajor) selectMajor(cat, tab);
@@ -422,9 +448,91 @@
         const addBtn = document.createElement('div');
         addBtn.className = 'major-tab-add';
         addBtn.innerText = '+';
-        addBtn.title = "新建大类 (New Major)";
+        addBtn.title = "新建大类";
         addBtn.onclick = () => openModal('new_major');
         container.appendChild(addBtn);
+    }
+
+    // 拖拽逻辑
+    let dragSrcEl = null;
+    function handleDragStart(e) {
+        this.classList.add('dragging');
+        dragSrcEl = this;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', this.innerHTML);
+    }
+    function handleDragOver(e) {
+        if (e.preventDefault) e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+    function handleDrop(e) {
+        if (e.stopPropagation) e.stopPropagation();
+        if (dragSrcEl !== this) {
+            const container = document.getElementById('majorTabsContainer');
+            const allTabs = [...container.querySelectorAll('.major-tab')];
+            const srcIndex = allTabs.indexOf(dragSrcEl);
+            const targetIndex = allTabs.indexOf(this);
+            if (srcIndex < targetIndex) container.insertBefore(dragSrcEl, this.nextSibling);
+            else container.insertBefore(dragSrcEl, this);
+            saveCategoryOrder();
+        }
+        return false;
+    }
+    function handleDragEnd(e) {
+        this.classList.remove('dragging');
+    }
+    async function saveCategoryOrder() {
+        const container = document.getElementById('majorTabsContainer');
+        const newOrder = [];
+        container.querySelectorAll('.major-tab').forEach(tab => {
+            newOrder.push(tab.innerText);
+        });
+        globalConfig.order = newOrder;
+        try {
+            await fetch('/api/save_category_order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: newOrder })
+            });
+        } catch(e) { console.error("保存排序失败", e); }
+    }
+
+    // 右键菜单
+    function handleRightClick(e, type, target, parent) {
+        e.preventDefault();
+        const menu = document.getElementById('contextMenu');
+        menu.style.display = 'block';
+        menu.style.left = e.pageX + 'px';
+        menu.style.top = e.pageY + 'px';
+        let html = '';
+        if (type === 'tag') {
+            html += `<div class="ctx-item delete" onclick="deleteItem('tag', '${target}')">🗑️ 删除此标签</div>`;
+        } else if (type === 'minor') {
+            html += `<div class="ctx-item delete" onclick="deleteItem('minor', '${target}', '${parent}')">🗑️ 删除子类 '${target}'</div>`;
+        } else if (type === 'major') {
+            html += `<div class="ctx-item delete" onclick="deleteItem('major', '${target}')">🗑️ 删除大类 '${target}'</div>`;
+        }
+        menu.innerHTML = html;
+    }
+
+    async function deleteItem(type, target, parent) {
+        if (!confirm(`确定要删除 ${type} "${target}" 吗？此操作不可撤销！`)) return;
+        try {
+            const res = await fetch('/api/delete_item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, target, parent })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert(data.message);
+                await loadDictionaryStructure();
+                if (type === 'tag') selectMinor(currentMinor);
+                else if (type === 'minor') selectMajor(currentMajor);
+                else if (type === 'major') { currentMajor=null; renderMajorTabs(); }
+            } else alert("删除失败: " + data.message);
+        } catch(e) { alert("网络错误"); }
     }
 
     function selectMajor(catName, domElement) {
@@ -441,14 +549,12 @@
     function renderMinorSidebar(catName) {
         const container = document.getElementById('minorSidebar');
         container.innerHTML = '';
-        
         const addBtn = document.createElement('div');
         addBtn.className = 'minor-item-add';
         addBtn.innerHTML = '<span>+ 新建小类</span>';
         addBtn.onclick = () => openModal('new_minor');
         container.appendChild(addBtn);
-
-        const minors = fullDictionaryStructure[catName] || [];
+        const minors = dictionaryStructure[catName] || [];
         minors.forEach((sub, index) => {
             const item = document.createElement('div');
             item.className = 'minor-item';
@@ -463,12 +569,10 @@
         currentMinor = subName;
         document.querySelectorAll('.minor-item').forEach(el => el.classList.remove('active'));
         if(domElement) domElement.classList.add('active');
-        
+        const title = document.getElementById('currentSectionTitle');
+        title.innerText = `${currentMajor} > ${subName}`;
         const container = document.getElementById('tagsGrid');
         container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding:20px;">正在加载标签...</div>';
-
-        // 1. 获取服务器数据
-        let serverTags = [];
         try {
             const res = await fetch('/api/get_category_tags', {
                 method: 'POST',
@@ -476,30 +580,34 @@
                 body: JSON.stringify({ cat: currentMajor, sub: subName })
             });
             const data = await res.json();
-            serverTags = data.tags;
-        } catch(e) { console.error("加载服务器数据失败", e); }
+            renderTagsGrid(data.tags, data.truncated);
+        } catch(e) { container.innerHTML = `<div style="color:red; grid-column:1/-1; text-align:center;">加载失败: ${e}</div>`; }
+    }
 
-        // 2. 获取本地新增数据
-        const local = getLocalData();
-        const localTags = local.added.filter(item => item.c === currentMajor && item.s === subName).map(item => ({
-            tag: item.t,
-            trans: item.zh,
-            isLocal: true // 标记为本地
-        }));
-
-        // 3. 合并并过滤（去除本地已删除的）
-        let allTags = [...serverTags, ...localTags];
-        allTags = allTags.filter(t => !local.deleted.includes(t.tag));
-
-        // 4. 渲染
-        renderTagsGrid(allTags, false);
+    async function performSearch() {
+        const query = document.getElementById('searchInput').value.trim();
+        const container = document.getElementById('tagsGrid');
+        const title = document.getElementById('currentSectionTitle');
+        if (!query) { alert("请输入搜索内容喵！"); return; }
+        title.innerText = `🔍 搜索结果: "${query}"`;
+        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding:20px;">正在搜索...</div>';
+        document.querySelectorAll('.minor-item').forEach(el => el.classList.remove('active'));
+        try {
+            const res = await fetch('/api/search_tags', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query })
+            });
+            const data = await res.json();
+            renderTagsGrid(data.results, false);
+            if (data.results.length === 0) container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding:20px;">未找到相关标签 🐱</div>';
+        } catch(e) { container.innerHTML = `<div style="color:red; grid-column:1/-1; text-align:center;">搜索出错: ${e}</div>`; }
     }
 
     function renderTagsGrid(tagsList, isTruncated) {
         const container = document.getElementById('tagsGrid');
         container.innerHTML = '';
         if (!tagsList || tagsList.length === 0) {
-            container.innerHTML = '<div style="grid-column:1/-1; color:#666; text-align:center;">暂无数据</div>';
+            if(!container.innerHTML) container.innerHTML = '<div style="grid-column:1/-1; color:#666; text-align:center;">暂无数据</div>';
             return;
         }
         const fragment = document.createDocumentFragment();
@@ -507,8 +615,6 @@
             translationCache[item.tag.toLowerCase()] = item.trans;
             const card = document.createElement('div');
             card.className = 'dict-card';
-            if (item.isLocal) card.classList.add('user-custom'); // 高亮本地卡片
-            
             card.addEventListener('contextmenu', (e) => handleRightClick(e, 'tag', item.tag));
             const enSpan = document.createElement('div');
             enSpan.className = 'dict-en';
@@ -527,89 +633,29 @@
             fragment.appendChild(card);
         });
         container.appendChild(fragment);
+        if (isTruncated) {
+            const notice = document.createElement('div');
+            notice.style.gridColumn = "1/-1";
+            notice.style.textAlign = "center";
+            notice.style.padding = "10px";
+            notice.style.color = "#ff64e3";
+            notice.style.fontSize = "0.8rem";
+            notice.innerText = "⚠️ 为防止浏览器卡顿，仅显示了前 2000 个标签。";
+            container.appendChild(notice);
+        }
     }
 
-    // === 本地删除逻辑 ===
-    function handleRightClick(e, type, target, parent) {
-        e.preventDefault();
-        const menu = document.getElementById('contextMenu');
-        menu.style.display = 'block';
-        menu.style.left = e.pageX + 'px';
-        menu.style.top = e.pageY + 'px';
-        let html = '';
-        if (type === 'tag') {
-            html += `<div class="ctx-item delete" onclick="deleteLocalItem('tag', '${target}')">🗑️ 删除此标签 (本地)</div>`;
-        }
-        // 分类删除比较复杂，暂时只做Tag删除演示
-        menu.innerHTML = html;
-    }
-
-    function deleteLocalItem(type, target) {
-        if (!confirm("确定要在您的浏览器中屏蔽此标签吗？")) return;
-        
-        const local = getLocalData();
-        // 1. 如果是本地新增的，直接从 added 移除
-        const index = local.added.findIndex(item => item.t === target);
-        if (index > -1) {
-            local.added.splice(index, 1);
-            localStorage.setItem(STORAGE_KEY_TAGS, JSON.stringify(local.added));
-        } else {
-            // 2. 如果是服务器原有的，加入 deleted 黑名单
-            if (!local.deleted.includes(target)) {
-                local.deleted.push(target);
-                localStorage.setItem(STORAGE_KEY_DELETED, JSON.stringify(local.deleted));
-            }
-        }
-        
-        alert("已删除/屏蔽");
-        selectMinor(currentMinor); // 刷新视图
-    }
-
-    // === 本地保存逻辑 ===
-    function saveTagDataLocal() {
-        const tag = document.getElementById('modalTag').value.trim().toLowerCase();
-        const trans = document.getElementById('modalTrans').value.trim();
-        const cat = document.getElementById('modalCat').value.trim();
-        const sub = document.getElementById('modalSub').value.trim();
-
-        if (!tag || !cat || !sub) { alert("请填写完整！"); return; }
-
-        const local = getLocalData();
-        
-        // 检查是否重复
-        const exists = local.added.some(item => item.t === tag);
-        if (exists) {
-            // 更新现有
-            local.added = local.added.map(item => item.t === tag ? {t:tag, zh:trans, c:cat, s:sub} : item);
-        } else {
-            // 新增
-            local.added.push({t:tag, zh:trans, c:cat, s:sub});
-        }
-        
-        // 如果之前在黑名单里，移除它
-        const delIndex = local.deleted.indexOf(tag);
-        if(delIndex > -1) {
-            local.deleted.splice(delIndex, 1);
-            localStorage.setItem(STORAGE_KEY_DELETED, JSON.stringify(local.deleted));
-        }
-
-        localStorage.setItem(STORAGE_KEY_TAGS, JSON.stringify(local.added));
-        
-        alert("已保存到本地浏览器！");
-        closeModal();
-        mergeLocalDataToStructure(); // 刷新结构
-        renderMajorTabs(); // 刷新导航
-        if (currentMajor === cat && currentMinor === sub) selectMinor(sub); // 刷新列表
-    }
-
-    // === 辅助功能 ===
+    // === Builder ===
     function syncTagsFromInput() {
         const input = document.getElementById('builderInput');
         const display = document.getElementById('selectedTagsDisplay');
         const rawText = input.value;
         const tags = rawText.split(/[,\n]+/).map(t => t.trim()).filter(t => t);
         display.innerHTML = '';
-        if (tags.length === 0) { display.innerHTML = '<div class="empty-tip">已选标签将显示在这里，点击即可删除...</div>'; return; }
+        if (tags.length === 0) {
+            display.innerHTML = '<div class="empty-tip">已选标签将显示在这里，点击即可删除...</div>';
+            return;
+        }
         tags.forEach((tag, index) => {
             const chip = document.createElement('div');
             chip.className = 'selected-tag-chip';
@@ -622,14 +668,24 @@
         });
         display.scrollTop = display.scrollHeight;
     }
+
     function removeTagByIndex(indexToRemove) {
         const input = document.getElementById('builderInput');
         let tags = input.value.split(/[,\n]+/).map(t => t.trim()).filter(t => t);
         tags.splice(indexToRemove, 1);
-        const inputVal = tags.length > 0 ? tags.join(', ') + ', ' : '';
-        input.value = inputVal;
+        updateInput(tags);
+    }
+
+    function updateInput(tagsArray) {
+        const input = document.getElementById('builderInput');
+        if (tagsArray.length > 0) {
+            input.value = tagsArray.join(', ') + ', ';
+        } else {
+            input.value = '';
+        }
         syncTagsFromInput();
     }
+
     function addTagToBuilder(tag) {
         const input = document.getElementById('builderInput');
         let currentVal = input.value.trim();
@@ -639,20 +695,33 @@
         syncTagsFromInput();
         input.scrollTop = input.scrollHeight;
     }
-    function clearBuilder() { document.getElementById('builderInput').value = ''; syncTagsFromInput(); }
+
+    function clearBuilder() {
+        document.getElementById('builderInput').value = '';
+        syncTagsFromInput();
+    }
+
     function copyBuilder() {
         const textarea = document.getElementById('builderInput');
-        textarea.select(); document.execCommand('copy');
-        const btn = event.target; const originalText = btn.innerText;
-        btn.innerText = "已复制!"; btn.style.background = "#69f0ae";
-        setTimeout(() => { btn.innerText = originalText; btn.style.background = ""; }, 1000);
+        textarea.select();
+        document.execCommand('copy');
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = "已复制!";
+        btn.style.background = "#69f0ae";
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.background = "";
+        }, 1000);
     }
-    
+
+    // === Modal ===
     function openModal(mode) {
         const modal = document.getElementById('editModal');
         const modalTitle = document.getElementById('modalTitle');
         const catInput = document.getElementById('modalCat');
         const subInput = document.getElementById('modalSub');
+        
         modal.classList.add('show');
         catInput.value = ''; subInput.value = '';
         document.getElementById('modalTag').value = '';
@@ -661,33 +730,62 @@
         
         const catList = document.getElementById('catList');
         catList.innerHTML = '';
-        const categories = Object.keys(fullDictionaryStructure).sort();
+        const categories = Object.keys(dictionaryStructure).sort();
         categories.forEach(cat => {
             const opt = document.createElement('option'); opt.value = cat; catList.appendChild(opt);
         });
 
-        if (mode === 'new_major') { modalTitle.innerText = "✨ 新建大类 (本地)"; catInput.focus(); }
+        if (mode === 'new_major') { modalTitle.innerText = "✨ 新建大类"; catInput.focus(); }
         else if (mode === 'new_minor') {
-            modalTitle.innerText = "✨ 新建小类 (本地)";
+            modalTitle.innerText = "✨ 新建小类";
             if (currentMajor) { catInput.value = currentMajor; catInput.readOnly = true; }
             subInput.focus();
         } else {
-            modalTitle.innerText = "✨ 新增 / 修改 Tag (本地)";
+            modalTitle.innerText = "✨ 新增 / 修改 Tag";
             if (currentMajor) catInput.value = currentMajor;
             if (currentMinor) subInput.value = currentMinor;
         }
         updateSubList();
     }
+
     function closeModal() { document.getElementById('editModal').classList.remove('show'); }
+
     function updateSubList() {
         const catVal = document.getElementById('modalCat').value;
         const subList = document.getElementById('subList');
         subList.innerHTML = '';
-        if (fullDictionaryStructure[catVal]) {
-            fullDictionaryStructure[catVal].forEach(sub => {
+        if (dictionaryStructure[catVal]) {
+            dictionaryStructure[catVal].forEach(sub => {
                 const opt = document.createElement('option'); opt.value = sub; subList.appendChild(opt);
             });
         }
+    }
+
+    async function saveTagData() {
+        const tag = document.getElementById('modalTag').value.trim();
+        const trans = document.getElementById('modalTrans').value.trim();
+        const cat = document.getElementById('modalCat').value.trim();
+        const sub = document.getElementById('modalSub').value.trim();
+
+        if (!tag || !cat || !sub) { alert("请填写Tag、大类和小类！"); return; }
+        const btn = document.querySelector('.btn-save');
+        btn.innerText = "保存中...";
+
+        try {
+            const res = await fetch('/api/save_tag', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag, trans, cat, sub })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert("保存成功！");
+                closeModal();
+                await loadDictionaryStructure();
+                if (currentMajor === cat && currentMinor === sub) selectMinor(sub); 
+                else { selectMajor(cat); setTimeout(() => selectMinor(sub), 100); }
+            } else alert("保存失败: " + data.message);
+        } catch (e) { alert("网络错误: " + e); } 
+        finally { btn.innerText = "保存并生效"; }
     }
 </script>
 
