@@ -1,0 +1,24 @@
+你好！本项目基于https://github.com/RafealaSilva/ComfyUI-Danbooru-Tag-Sorter-Node的comfy节点的自动翻译节点制作，
+是一个外置的以前端网页实现功能的程序。请务必去该网站给作者点star！谢谢
+
+使用方法
+        准备环境:
+    打开CMD
+安装 Python。
+在命令行运行: pip install flask pandas openpyxl
+安装CORS依赖
+pip install flask-cors
+安装翻译
+在命令行运行:pip install deep-translator
+        运行:
+进入TagSofter文件夹
+在文件夹空白处右键，选中”在终端中打开“
+在窗口输入: python app.py 并回车
+        访问:
+打开浏览器访问 http://127.0.0.1:5000。
+你会看到配置已经自动加载。
+将你所需要整理的prompts放到input prompts框中，点击soft tags
+稍等一段时间便会出现在输出框中。可以通过输出框下的tag卡片对其中的tags组进行修改
+
+由于本人才疏学浅不善编程和创新，若有什么优化方法和建议或已经优化好了请务必发我
+QQ：3048860393
