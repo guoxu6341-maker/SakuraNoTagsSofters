@@ -311,8 +311,14 @@ def save_category_order():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# ... (前面的代码不变) ...
+
+# 1. 在这里直接调用初始化，确保 Gunicorn 启动时也会加载数据
+init_db()
+
 if __name__ == '__main__':
-    init_db()
-    # host='0.0.0.0' 代表允许局域网或公网访问
-    # debug=False 生产环境必须关闭，否则报错会泄露代码
+    print("=" * 50)
+    print("赛博猫猫 Tag Sorter (终极版) 启动成功喵!")
+    print("请双击 '启动程序.bat' 来使用工具喵！")
+    print("=" * 50)
     app.run(host='0.0.0.0', port=5000, debug=False)
