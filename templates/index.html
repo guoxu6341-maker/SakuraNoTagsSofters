@@ -35,7 +35,6 @@
         .page-view.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 通用 */
         .glass-panel { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; backdrop-filter: blur(15px); }
         textarea { width: 100%; background: rgba(0,0,0,0.4); border: 1px solid #333; border-radius: 6px; padding: 15px; color: #dbeafe; font-family: monospace; resize: vertical; outline: none; box-sizing: border-box; min-height: 150px; }
         textarea:focus { border-color: var(--neon-pink); }
@@ -50,6 +49,7 @@
         .category-group { border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; }
         .category-title { color: var(--neon-blue); font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; padding-bottom: 5px; font-size: 0.95rem; }
         .tags-wrapper { display: flex; flex-wrap: wrap; gap: 8px; }
+        
         .sorter-tag-card { background: rgba(100, 255, 218, 0.1); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(100, 255, 218, 0.3); color: #b9f6ca; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; user-select: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 40px; }
         .sorter-tag-card:hover { background: rgba(255, 82, 82, 0.2); border-color: #ff5252; transform: translateY(-2px); }
         .sorter-en { font-weight: bold; line-height: 1.2; }
@@ -109,6 +109,8 @@
         .dict-en { font-size: 0.95rem; color: #fff; font-weight: 600; word-break: break-word; line-height: 1.2; }
         .dict-cn { font-size: 0.8rem; color: var(--neon-pink); margin-top: auto; opacity: 0.9; font-weight: normal; }
         .dict-cn.empty { opacity: 0.3; font-style: italic; font-size: 0.75rem; }
+        .dict-card.user-custom { border: 1px dashed #ffd700; background: rgba(255, 215, 0, 0.05); }
+        .dict-card.user-custom .dict-cn { color: #ffd700; }
 
         /* 弹窗 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 2000; justify-content: center; align-items: center; animation: fadeIn 0.2s ease; }
@@ -150,7 +152,7 @@
 <div class="snow-container" id="snowContainer"></div>
 
 <div class="navbar">
-    <div class="logo">SAKURA TAGS</div>
+    <div class="logo">SAKURA TAGS <span style="font-size:0.8rem; color:#aaa; font-weight:normal;">(私有版)</span></div>
     <div class="nav-tabs">
         <div class="nav-item active" onclick="switchPage('sorter')">智能整理 (Sorter)</div>
         <div class="nav-item" onclick="switchPage('browser')">标签字典 (Browser)</div>
@@ -247,7 +249,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeModal()">取消</button>
-            <button class="btn-save" onclick="saveTagData()">保存并生效</button>
+            <button class="btn-save" onclick="saveTagDataLocal()">保存到本地</button>
         </div>
     </div>
 </div>
@@ -256,6 +258,17 @@
 <div id="contextMenu"></div>
 
 <script>
+    // === 本地存储核心逻辑 ===
+    const STORAGE_KEY_TAGS = 'my_custom_tags';
+    const STORAGE_KEY_DELETED = 'my_deleted_tags';
+
+    function getLocalData() {
+        return {
+            added: JSON.parse(localStorage.getItem(STORAGE_KEY_TAGS) || '[]'),
+            deleted: JSON.parse(localStorage.getItem(STORAGE_KEY_DELETED) || '[]')
+        };
+    }
+
     window.addEventListener('load', () => {
         createSnow();
         loadGlobalConfig();
@@ -265,7 +278,6 @@
             if (e.key === 'Enter') performSearch();
         });
         document.getElementById('modalCat').addEventListener('input', updateSubList);
-        
         document.addEventListener('click', () => {
             document.getElementById('contextMenu').style.display = 'none';
         });
@@ -288,6 +300,7 @@
 
     let globalConfig = { mapping: [], order: [] }; 
     let dictionaryStructure = {}; 
+    let fullDictionaryStructure = {}; 
     let translationCache = {}; 
     let currentMajor = null;
     let currentMinor = null;
@@ -332,12 +345,57 @@
             });
             const data = await res.json();
             if(data.result_struct) {
-                lastSortedData = data.result_struct; 
+                // 核心：在渲染前，把本地私有 Tag 合并进去
+                lastSortedData = mergeLocalTagsToSorter(data.result_struct); 
                 renderSorterResults(lastSortedData); 
                 updateSorterOutputText(lastSortedData); 
             }
         } catch(e) { alert("Error: " + e); } 
         finally { btn.innerText = "开始整理 (SORT)"; btn.style.opacity = "1"; }
+    }
+
+    // === 新增：将本地 Tag 合并到 Sorter 结果 ===
+    function mergeLocalTagsToSorter(serverResult) {
+        const local = getLocalData();
+        const defaultCat = "未归类词"; // 后端默认分类名
+
+        // 1. 建立本地 Tag 查找表
+        const localLookup = {};
+        local.added.forEach(item => {
+            localLookup[item.t.toLowerCase()] = { c: item.c, s: item.s, zh: item.zh };
+        });
+
+        // 2. 检查“未归类”桶，看看有没有私有 Tag 被误分到这里
+        if (serverResult[defaultCat]) {
+            const remainingUncategorized = [];
+            
+            serverResult[defaultCat].forEach(tagObj => {
+                const lowerTag = tagObj.tag.toLowerCase();
+                if (localLookup[lowerTag]) {
+                    // 找到了！是用户的私有 Tag
+                    const info = localLookup[lowerTag];
+                    const targetCat = info.c;
+
+                    if (!serverResult[targetCat]) {
+                        serverResult[targetCat] = [];
+                    }
+
+                    // 移动到正确分类，并补充翻译
+                    tagObj.trans = info.zh;
+                    serverResult[targetCat].push(tagObj);
+                } else {
+                    remainingUncategorized.push(tagObj);
+                }
+            });
+
+            // 更新未归类桶
+            serverResult[defaultCat] = remainingUncategorized;
+        }
+
+        // 3. 检查本地 Tag 中是否有全新未提交的 Tag 
+        // (注：此逻辑复杂，暂不实现自动补全，只处理输入的 Tag)
+
+        return serverResult;
     }
 
     function renderSorterResults(resultStruct) {
@@ -405,46 +463,46 @@
             const data = await res.json();
             if (data.status === 'success') {
                 dictionaryStructure = data.structure;
+                mergeLocalDataToStructure();
                 renderMajorTabs();
                 grid.innerHTML = '<div style="color:#666; padding:20px; text-align:center;">← 请选择左侧分类查看标签</div>';
             } else grid.innerHTML = '<div style="color:red; padding:20px; text-align:center;">数据为空</div>';
         } catch(e) { grid.innerHTML = '网络错误: ' + e; }
     }
 
+    function mergeLocalDataToStructure() {
+        fullDictionaryStructure = JSON.parse(JSON.stringify(dictionaryStructure));
+        const local = getLocalData();
+        local.added.forEach(item => {
+            if (!fullDictionaryStructure[item.c]) fullDictionaryStructure[item.c] = [];
+            if (!fullDictionaryStructure[item.c].includes(item.s)) {
+                fullDictionaryStructure[item.c].push(item.s);
+                fullDictionaryStructure[item.c].sort();
+            }
+        });
+    }
+
     function renderMajorTabs() {
         const container = document.getElementById('majorTabsContainer');
         container.innerHTML = '';
-        
-        let categories = Object.keys(dictionaryStructure);
-        if(globalConfig.order.length > 0) {
-            let ordered = [];
-            let others = [];
-            globalConfig.order.forEach(c => { if(categories.includes(c)) ordered.push(c); });
-            categories.forEach(c => { if(!globalConfig.order.includes(c)) others.push(c); });
-            categories = ordered.concat(others);
-        } else {
-            categories.sort();
-        }
-
-        if (categories.length === 0) return;
-        
+        const categories = Object.keys(fullDictionaryStructure).sort();
         categories.forEach((cat, index) => {
             const tab = document.createElement('div');
             tab.className = 'major-tab';
             tab.innerText = cat;
-            tab.draggable = true;
+            tab.onclick = () => selectMajor(cat, tab);
             
+            // 拖拽
+            tab.draggable = true;
             tab.addEventListener('dragstart', handleDragStart);
             tab.addEventListener('dragover', handleDragOver);
             tab.addEventListener('drop', handleDrop);
             tab.addEventListener('dragend', handleDragEnd);
             tab.addEventListener('contextmenu', (e) => handleRightClick(e, 'major', cat));
 
-            tab.onclick = () => selectMajor(cat, tab);
             container.appendChild(tab);
             if (index === 0 && !currentMajor) selectMajor(cat, tab);
         });
-
         const addBtn = document.createElement('div');
         addBtn.className = 'major-tab-add';
         addBtn.innerText = '+';
@@ -453,7 +511,7 @@
         container.appendChild(addBtn);
     }
 
-    // 拖拽逻辑
+    // 拖拽排序 (本地版，不保存到服务器)
     let dragSrcEl = null;
     function handleDragStart(e) {
         this.classList.add('dragging');
@@ -461,79 +519,23 @@
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/html', this.innerHTML);
     }
-    function handleDragOver(e) {
-        if (e.preventDefault) e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        return false;
-    }
+    function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
     function handleDrop(e) {
         if (e.stopPropagation) e.stopPropagation();
         if (dragSrcEl !== this) {
             const container = document.getElementById('majorTabsContainer');
+            // 注意排除最后的加号按钮
             const allTabs = [...container.querySelectorAll('.major-tab')];
             const srcIndex = allTabs.indexOf(dragSrcEl);
             const targetIndex = allTabs.indexOf(this);
             if (srcIndex < targetIndex) container.insertBefore(dragSrcEl, this.nextSibling);
             else container.insertBefore(dragSrcEl, this);
-            saveCategoryOrder();
+            
+            // 保存顺序到 LocalStorage (暂未实现复杂顺序持久化，仅当前会话有效)
         }
         return false;
     }
-    function handleDragEnd(e) {
-        this.classList.remove('dragging');
-    }
-    async function saveCategoryOrder() {
-        const container = document.getElementById('majorTabsContainer');
-        const newOrder = [];
-        container.querySelectorAll('.major-tab').forEach(tab => {
-            newOrder.push(tab.innerText);
-        });
-        globalConfig.order = newOrder;
-        try {
-            await fetch('/api/save_category_order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order: newOrder })
-            });
-        } catch(e) { console.error("保存排序失败", e); }
-    }
-
-    // 右键菜单
-    function handleRightClick(e, type, target, parent) {
-        e.preventDefault();
-        const menu = document.getElementById('contextMenu');
-        menu.style.display = 'block';
-        menu.style.left = e.pageX + 'px';
-        menu.style.top = e.pageY + 'px';
-        let html = '';
-        if (type === 'tag') {
-            html += `<div class="ctx-item delete" onclick="deleteItem('tag', '${target}')">🗑️ 删除此标签</div>`;
-        } else if (type === 'minor') {
-            html += `<div class="ctx-item delete" onclick="deleteItem('minor', '${target}', '${parent}')">🗑️ 删除子类 '${target}'</div>`;
-        } else if (type === 'major') {
-            html += `<div class="ctx-item delete" onclick="deleteItem('major', '${target}')">🗑️ 删除大类 '${target}'</div>`;
-        }
-        menu.innerHTML = html;
-    }
-
-    async function deleteItem(type, target, parent) {
-        if (!confirm(`确定要删除 ${type} "${target}" 吗？此操作不可撤销！`)) return;
-        try {
-            const res = await fetch('/api/delete_item', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, target, parent })
-            });
-            const data = await res.json();
-            if (data.status === 'success') {
-                alert(data.message);
-                await loadDictionaryStructure();
-                if (type === 'tag') selectMinor(currentMinor);
-                else if (type === 'minor') selectMajor(currentMajor);
-                else if (type === 'major') { currentMajor=null; renderMajorTabs(); }
-            } else alert("删除失败: " + data.message);
-        } catch(e) { alert("网络错误"); }
-    }
+    function handleDragEnd(e) { this.classList.remove('dragging'); }
 
     function selectMajor(catName, domElement) {
         currentMajor = catName;
@@ -554,7 +556,7 @@
         addBtn.innerHTML = '<span>+ 新建小类</span>';
         addBtn.onclick = () => openModal('new_minor');
         container.appendChild(addBtn);
-        const minors = dictionaryStructure[catName] || [];
+        const minors = fullDictionaryStructure[catName] || [];
         minors.forEach((sub, index) => {
             const item = document.createElement('div');
             item.className = 'minor-item';
@@ -573,41 +575,32 @@
         title.innerText = `${currentMajor} > ${subName}`;
         const container = document.getElementById('tagsGrid');
         container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding:20px;">正在加载标签...</div>';
+        
+        let serverTags = [];
         try {
             const res = await fetch('/api/get_category_tags', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cat: currentMajor, sub: subName })
             });
             const data = await res.json();
-            renderTagsGrid(data.tags, data.truncated);
-        } catch(e) { container.innerHTML = `<div style="color:red; grid-column:1/-1; text-align:center;">加载失败: ${e}</div>`; }
-    }
+            serverTags = data.tags;
+        } catch(e) { console.error("加载服务器数据失败", e); }
 
-    async function performSearch() {
-        const query = document.getElementById('searchInput').value.trim();
-        const container = document.getElementById('tagsGrid');
-        const title = document.getElementById('currentSectionTitle');
-        if (!query) { alert("请输入搜索内容喵！"); return; }
-        title.innerText = `🔍 搜索结果: "${query}"`;
-        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding:20px;">正在搜索...</div>';
-        document.querySelectorAll('.minor-item').forEach(el => el.classList.remove('active'));
-        try {
-            const res = await fetch('/api/search_tags', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: query })
-            });
-            const data = await res.json();
-            renderTagsGrid(data.results, false);
-            if (data.results.length === 0) container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding:20px;">未找到相关标签 🐱</div>';
-        } catch(e) { container.innerHTML = `<div style="color:red; grid-column:1/-1; text-align:center;">搜索出错: ${e}</div>`; }
+        const local = getLocalData();
+        const localTags = local.added.filter(item => item.c === currentMajor && item.s === subName).map(item => ({
+            tag: item.t, trans: item.zh, isLocal: true
+        }));
+
+        let allTags = [...serverTags, ...localTags];
+        allTags = allTags.filter(t => !local.deleted.includes(t.tag));
+        renderTagsGrid(allTags, false);
     }
 
     function renderTagsGrid(tagsList, isTruncated) {
         const container = document.getElementById('tagsGrid');
         container.innerHTML = '';
         if (!tagsList || tagsList.length === 0) {
-            if(!container.innerHTML) container.innerHTML = '<div style="grid-column:1/-1; color:#666; text-align:center;">暂无数据</div>';
+            container.innerHTML = '<div style="grid-column:1/-1; color:#666; text-align:center;">暂无数据</div>';
             return;
         }
         const fragment = document.createDocumentFragment();
@@ -615,6 +608,7 @@
             translationCache[item.tag.toLowerCase()] = item.trans;
             const card = document.createElement('div');
             card.className = 'dict-card';
+            if (item.isLocal) card.classList.add('user-custom');
             card.addEventListener('contextmenu', (e) => handleRightClick(e, 'tag', item.tag));
             const enSpan = document.createElement('div');
             enSpan.className = 'dict-en';
@@ -633,29 +627,75 @@
             fragment.appendChild(card);
         });
         container.appendChild(fragment);
-        if (isTruncated) {
-            const notice = document.createElement('div');
-            notice.style.gridColumn = "1/-1";
-            notice.style.textAlign = "center";
-            notice.style.padding = "10px";
-            notice.style.color = "#ff64e3";
-            notice.style.fontSize = "0.8rem";
-            notice.innerText = "⚠️ 为防止浏览器卡顿，仅显示了前 2000 个标签。";
-            container.appendChild(notice);
-        }
     }
 
-    // === Builder ===
+    // === 本地删除 ===
+    function handleRightClick(e, type, target, parent) {
+        e.preventDefault();
+        const menu = document.getElementById('contextMenu');
+        menu.style.display = 'block';
+        menu.style.left = e.pageX + 'px';
+        menu.style.top = e.pageY + 'px';
+        let html = '';
+        if (type === 'tag') html += `<div class="ctx-item delete" onclick="deleteLocalItem('tag', '${target}')">🗑️ 删除此标签 (本地)</div>`;
+        menu.innerHTML = html;
+    }
+
+    function deleteLocalItem(type, target) {
+        if (!confirm("确定要在您的浏览器中屏蔽此标签吗？")) return;
+        const local = getLocalData();
+        const index = local.added.findIndex(item => item.t === target);
+        if (index > -1) {
+            local.added.splice(index, 1);
+            localStorage.setItem(STORAGE_KEY_TAGS, JSON.stringify(local.added));
+        } else {
+            if (!local.deleted.includes(target)) {
+                local.deleted.push(target);
+                localStorage.setItem(STORAGE_KEY_DELETED, JSON.stringify(local.deleted));
+            }
+        }
+        alert("已删除/屏蔽");
+        selectMinor(currentMinor);
+    }
+
+    // === 本地保存 ===
+    function saveTagDataLocal() {
+        const tag = document.getElementById('modalTag').value.trim().toLowerCase();
+        const trans = document.getElementById('modalTrans').value.trim();
+        const cat = document.getElementById('modalCat').value.trim();
+        const sub = document.getElementById('modalSub').value.trim();
+
+        if (!tag || !cat || !sub) { alert("请填写完整！"); return; }
+
+        const local = getLocalData();
+        const exists = local.added.some(item => item.t === tag);
+        if (exists) {
+            local.added = local.added.map(item => item.t === tag ? {t:tag, zh:trans, c:cat, s:sub} : item);
+        } else {
+            local.added.push({t:tag, zh:trans, c:cat, s:sub});
+        }
+        const delIndex = local.deleted.indexOf(tag);
+        if(delIndex > -1) {
+            local.deleted.splice(delIndex, 1);
+            localStorage.setItem(STORAGE_KEY_DELETED, JSON.stringify(local.deleted));
+        }
+        localStorage.setItem(STORAGE_KEY_TAGS, JSON.stringify(local.added));
+        alert("已保存到本地浏览器！");
+        closeModal();
+        mergeLocalDataToStructure();
+        renderMajorTabs();
+        if (currentMajor === cat && currentMinor === sub) selectMinor(sub); 
+        else { selectMajor(cat); setTimeout(() => selectMinor(sub), 100); }
+    }
+
+    // === 辅助 ===
     function syncTagsFromInput() {
         const input = document.getElementById('builderInput');
         const display = document.getElementById('selectedTagsDisplay');
         const rawText = input.value;
         const tags = rawText.split(/[,\n]+/).map(t => t.trim()).filter(t => t);
         display.innerHTML = '';
-        if (tags.length === 0) {
-            display.innerHTML = '<div class="empty-tip">已选标签将显示在这里，点击即可删除...</div>';
-            return;
-        }
+        if (tags.length === 0) { display.innerHTML = '<div class="empty-tip">已选标签将显示在这里，点击即可删除...</div>'; return; }
         tags.forEach((tag, index) => {
             const chip = document.createElement('div');
             chip.className = 'selected-tag-chip';
@@ -668,24 +708,14 @@
         });
         display.scrollTop = display.scrollHeight;
     }
-
     function removeTagByIndex(indexToRemove) {
         const input = document.getElementById('builderInput');
         let tags = input.value.split(/[,\n]+/).map(t => t.trim()).filter(t => t);
         tags.splice(indexToRemove, 1);
-        updateInput(tags);
-    }
-
-    function updateInput(tagsArray) {
-        const input = document.getElementById('builderInput');
-        if (tagsArray.length > 0) {
-            input.value = tagsArray.join(', ') + ', ';
-        } else {
-            input.value = '';
-        }
+        const inputVal = tags.length > 0 ? tags.join(', ') + ', ' : '';
+        input.value = inputVal;
         syncTagsFromInput();
     }
-
     function addTagToBuilder(tag) {
         const input = document.getElementById('builderInput');
         let currentVal = input.value.trim();
@@ -695,33 +725,20 @@
         syncTagsFromInput();
         input.scrollTop = input.scrollHeight;
     }
-
-    function clearBuilder() {
-        document.getElementById('builderInput').value = '';
-        syncTagsFromInput();
-    }
-
+    function clearBuilder() { document.getElementById('builderInput').value = ''; syncTagsFromInput(); }
     function copyBuilder() {
         const textarea = document.getElementById('builderInput');
-        textarea.select();
-        document.execCommand('copy');
-        const btn = event.target;
-        const originalText = btn.innerText;
-        btn.innerText = "已复制!";
-        btn.style.background = "#69f0ae";
-        setTimeout(() => {
-            btn.innerText = originalText;
-            btn.style.background = "";
-        }, 1000);
+        textarea.select(); document.execCommand('copy');
+        const btn = event.target; const originalText = btn.innerText;
+        btn.innerText = "已复制!"; btn.style.background = "#69f0ae";
+        setTimeout(() => { btn.innerText = originalText; btn.style.background = ""; }, 1000);
     }
-
-    // === Modal ===
+    
     function openModal(mode) {
         const modal = document.getElementById('editModal');
         const modalTitle = document.getElementById('modalTitle');
         const catInput = document.getElementById('modalCat');
         const subInput = document.getElementById('modalSub');
-        
         modal.classList.add('show');
         catInput.value = ''; subInput.value = '';
         document.getElementById('modalTag').value = '';
@@ -730,62 +747,51 @@
         
         const catList = document.getElementById('catList');
         catList.innerHTML = '';
-        const categories = Object.keys(dictionaryStructure).sort();
+        const categories = Object.keys(fullDictionaryStructure).sort();
         categories.forEach(cat => {
             const opt = document.createElement('option'); opt.value = cat; catList.appendChild(opt);
         });
 
-        if (mode === 'new_major') { modalTitle.innerText = "✨ 新建大类"; catInput.focus(); }
+        if (mode === 'new_major') { modalTitle.innerText = "✨ 新建大类 (本地)"; catInput.focus(); }
         else if (mode === 'new_minor') {
-            modalTitle.innerText = "✨ 新建小类";
+            modalTitle.innerText = "✨ 新建小类 (本地)";
             if (currentMajor) { catInput.value = currentMajor; catInput.readOnly = true; }
             subInput.focus();
         } else {
-            modalTitle.innerText = "✨ 新增 / 修改 Tag";
+            modalTitle.innerText = "✨ 新增 / 修改 Tag (本地)";
             if (currentMajor) catInput.value = currentMajor;
             if (currentMinor) subInput.value = currentMinor;
         }
         updateSubList();
     }
-
     function closeModal() { document.getElementById('editModal').classList.remove('show'); }
-
     function updateSubList() {
         const catVal = document.getElementById('modalCat').value;
         const subList = document.getElementById('subList');
         subList.innerHTML = '';
-        if (dictionaryStructure[catVal]) {
-            dictionaryStructure[catVal].forEach(sub => {
+        if (fullDictionaryStructure[catVal]) {
+            fullDictionaryStructure[catVal].forEach(sub => {
                 const opt = document.createElement('option'); opt.value = sub; subList.appendChild(opt);
             });
         }
     }
-
-    async function saveTagData() {
-        const tag = document.getElementById('modalTag').value.trim();
-        const trans = document.getElementById('modalTrans').value.trim();
-        const cat = document.getElementById('modalCat').value.trim();
-        const sub = document.getElementById('modalSub').value.trim();
-
-        if (!tag || !cat || !sub) { alert("请填写Tag、大类和小类！"); return; }
-        const btn = document.querySelector('.btn-save');
-        btn.innerText = "保存中...";
-
+    async function performSearch() {
+        const query = document.getElementById('searchInput').value.trim();
+        const container = document.getElementById('tagsGrid');
+        const title = document.getElementById('currentSectionTitle');
+        if (!query) { alert("请输入搜索内容喵！"); return; }
+        title.innerText = `🔍 搜索结果: "${query}"`;
+        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding:20px;">正在搜索...</div>';
+        document.querySelectorAll('.minor-item').forEach(el => el.classList.remove('active'));
         try {
-            const res = await fetch('/api/save_tag', {
+            const res = await fetch('/api/search_tags', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tag, trans, cat, sub })
+                body: JSON.stringify({ query: query })
             });
             const data = await res.json();
-            if (data.status === 'success') {
-                alert("保存成功！");
-                closeModal();
-                await loadDictionaryStructure();
-                if (currentMajor === cat && currentMinor === sub) selectMinor(sub); 
-                else { selectMajor(cat); setTimeout(() => selectMinor(sub), 100); }
-            } else alert("保存失败: " + data.message);
-        } catch (e) { alert("网络错误: " + e); } 
-        finally { btn.innerText = "保存并生效"; }
+            renderTagsGrid(data.results, false);
+            if (data.results.length === 0) container.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#888; padding:20px;">未找到相关标签 🐱</div>';
+        } catch(e) { container.innerHTML = `<div style="color:red; grid-column:1/-1; text-align:center;">搜索出错: ${e}</div>`; }
     }
 </script>
 
