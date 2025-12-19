@@ -1,2 +1,4 @@
 # SakuraNoTagsSofters
 用来进行SD的ai绘画的关键词索引分类
+我为此也创建了一个网站供使用：httpssakuranotagssofters.onrender.com
+但是不确定是否全天稳定，有必要的还是建议下载源文件本地使用
