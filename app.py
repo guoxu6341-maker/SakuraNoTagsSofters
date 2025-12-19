@@ -313,8 +313,6 @@ def save_category_order():
 
 if __name__ == '__main__':
     init_db()
-    print("=" * 50)
-    print("赛博猫猫 Tag Sorter (终极修复版) 启动成功喵!")
-    print("请双击 '启动程序.bat' 来使用工具喵！")
-    print("=" * 50)
-    app.run(debug=True, port=5000)
+    # host='0.0.0.0' 代表允许局域网或公网访问
+    # debug=False 生产环境必须关闭，否则报错会泄露代码
+    app.run(host='0.0.0.0', port=5000, debug=False)
