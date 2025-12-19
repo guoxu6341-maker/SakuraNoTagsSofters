@@ -1,0 +1,2 @@
+# SakuraNoTagsSofters
+用来进行SD的ai绘画的关键词索引分类
