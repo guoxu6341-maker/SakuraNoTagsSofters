@@ -1,6 +1,0 @@
-flask
-flask-cors
-deep-translator
-pandas
-openpyxl
-gunicorn
